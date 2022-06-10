@@ -1,36 +1,40 @@
-package store
+package sqlstore
 
-import "go-rest-api/internal/model"
+import (
+	"database/sql"
+	"go-rest-api/internal/model"
+	"go-rest-api/internal/store"
+)
 
 type UserRepository struct {
 	store *Store
 }
 
-func (r *UserRepository) Create(u *model.User) (*model.User, error) {
+func (r *UserRepository) Create(u *model.User) error {
 	if err := u.Validate(); err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := u.BeforeCreate(); err != nil {
-		return nil, err
+		return err
 	}
 
 	stmt, err := r.store.db.Prepare("insert into users(email, encrypted_password) values(?, ?);")
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	res, err := stmt.Exec(u.Email, u.EncryptedPassword)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	u.ID, err = res.LastInsertId()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return u, nil
+	return nil
 }
 
 func (r *UserRepository) FindByEmail(email string) (*model.User, error) {
@@ -44,6 +48,10 @@ func (r *UserRepository) FindByEmail(email string) (*model.User, error) {
 		&u.Email,
 		&u.EncryptedPassword,
 	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, store.ErrRecordNotFound
+		}
+
 		return nil, err
 	}
 
